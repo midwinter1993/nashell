@@ -29,6 +29,7 @@ char* str_trim_space(char *str);
 char** str_split(const char *str, const char *delim);
 bool str_equal(const char *s1, const char *s2);
 void str_free_array(char **arr);
+char* str_move(char *dst, char *src);
 
 int* pipe_open(int nr_pipe);
 void pipe_close(int *pipe_fds, int nr_pipe);

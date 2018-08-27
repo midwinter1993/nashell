@@ -86,7 +86,7 @@ char* str_trim_space(char *str) {
                 next += 1;
             }
             if (next != ptr+1) {
-                memmove(ptr+1, next, strlen(next)+1);
+                str_move(ptr+1, next);
             }
         }
         ptr += 1;
@@ -135,6 +135,11 @@ char** str_split(const char *str, const char *delim) {
 
 bool str_equal(const char *s1, const char *s2) {
     return strcmp(s1, s2) == 0;
+}
+
+char* str_move(char *dst, char *src) {
+    memmove(dst, src, strlen(src));
+    return dst;
 }
 
 char* readline() {

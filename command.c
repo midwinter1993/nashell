@@ -12,6 +12,40 @@
 #include "common.h"
 #include "handler.h"
 
+/*
+ * `str` can be modified in place.
+ * `pat` is one of "&>", ">", "2>"
+ */
+static char* cmd_parse_redirect(char *str, const char *pat) {
+    char *ptr = strstr(str, pat);
+    if (!ptr) {
+        return NULL;
+    }
+
+    *ptr = '\0';
+
+    char *filename_start = ptr + strlen(pat);
+    while (*filename_start == ' ') {
+        filename_start += 1;
+    }
+
+    if (*filename_start != '\0') {
+        char *filename_end = filename_start;
+        while (*filename_end && *filename_end != ' ' && *filename_end != '>') {
+            filename_end += 1;
+        }
+
+        char ch = *filename_end;
+        *filename_end = '\0';
+        char *filename = strdup(filename_start);
+        *filename_end = ch;
+        str_move(ptr, filename_end);
+
+        return filename;
+    }
+    return NULL;
+}
+
 command_t* cmd_parse(const char *str) {
     char ** sub_cmds = str_split(str, "|");
     if (!sub_cmds) {
@@ -56,77 +90,44 @@ command_t* cmd_parse(const char *str) {
     //
     // Both redirect to the same file
     //
-    char *pos = strstr(last_cmd, "&>");
-    if(pos != NULL) {
-        *pos = '\0';
-        cmds[nr_cmd-1].cmd_args_ = str_split(sub_cmds[nr_cmd-1], " ");
-        cmds[nr_cmd-1].cmd_name_ = cmds[nr_cmd-1].cmd_args_[0];
+    char *filename = cmd_parse_redirect(last_cmd, "&>");
+    if (filename) {
+        cmds[nr_cmd].cmd_args_[0] = strdup(filename);
+        cmds[nr_cmd].cmd_args_[1] = strdup(filename);
+        free(filename);
+    }
 
-        pos += 2;
+    //
+    // stdout redirection
+    //
+    filename = cmd_parse_redirect(last_cmd, ">");
+    if (filename) {
+        cmds[nr_cmd].cmd_args_[0] = strdup(filename);
+    }
 
-        cmds[nr_cmd].cmd_args_[0] = strdup(pos);
-        cmds[nr_cmd].cmd_args_[1] = strdup(pos);
-        return cmds;
+    //
+    // stderr redirection
+    //
+    filename = cmd_parse_redirect(last_cmd, "2>");
+    if (filename) {
+        cmds[nr_cmd].cmd_args_[1] = strdup(filename);
     }
 
     //
     // stderr redirect to stdout
     //
-    pos = strstr(last_cmd, "2>&1");
+    char *pos = strstr(last_cmd, "2>&1");
     if (pos != NULL) {
-        memmove(pos, pos+4, strlen(pos+4)+1);
+        str_move(pos, pos+4);
         cmds[nr_cmd].cmd_args_[1] = strdup("stdout");
     }
 
     //
-    // stdout redirect
+    // The last command has been processed.
     //
-    pos = strstr(last_cmd, ">");
-    if (pos != NULL) {
-        *pos = '\0';
-
-        char *start = pos+1;
-        while(*start == ' ') {
-            start += 1;
-        }
-
-        if (*start != '\0') {
-            char *end = start;
-            while (*end && *end != ' ') {
-                end += 1;
-            }
-            char ch = *end;
-            *end = '\0';
-            cmds[nr_cmd].cmd_args_[0] = strdup(start);
-            *end = ch;
-            memmove(pos, end, strlen(end)+1);
-        }
-    }
-
-    pos = strstr(last_cmd, "2>");
-    if (pos != NULL) {
-        *pos = '\0';
-
-        char *start = pos+2;
-        while(*start == ' ') {
-            start += 1;
-        }
-
-        if (*start != '\0') {
-            char *end = start;
-            while (*end && *end != ' ') {
-                end += 1;
-            }
-            char ch = *end;
-            *end = '\0';
-            cmds[nr_cmd].cmd_args_[1] = strdup(start);
-            *end = ch;
-            memmove(pos, end, strlen(end)+1);
-        }
-    }
-
-    cmds[nr_cmd-1].cmd_args_ = str_split(sub_cmds[nr_cmd-1], " ");
+    cmds[nr_cmd-1].cmd_args_ = str_split(last_cmd, " ");
     cmds[nr_cmd-1].cmd_name_ = cmds[nr_cmd-1].cmd_args_[0];
+
     return cmds;
 }
 
