@@ -9,9 +9,11 @@ typedef struct command_t {
     char **cmd_args_;
 } command_t;
 
-command_t* parse_command(const char *str);
+command_t* cmd_parse(const char *str);
+void cmd_free(command_t *cmds);
 
-int count_command(command_t *cmds);
-int run_command(command_t *cmds);
+int cmd_count(command_t *cmds);
+// int cmd_exec_pipe(command_t *cmds);
+int cmd_exec(command_t *cmds);
 
 #endif /* ifndef __COMMAND_H__ */

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <unistd.h>
 
 #include "common.h"
 
@@ -25,6 +26,22 @@ static int str_count_char(const char *str, char ch) {
     }
     return cnt;
 }
+
+void str_free_array(char **arr) {
+    //
+    // NOTE we put a NULL pointer at last.
+    //
+    if (!arr) {
+        return;
+    }
+    char **ptr = arr;
+    while (*ptr) {
+        free(*ptr);
+        ptr += 1;
+    }
+    free(arr);
+}
+
 
 // ===============================================
 
@@ -121,8 +138,6 @@ bool str_equal(const char *s1, const char *s2) {
 }
 
 char* readline() {
-    printf("$ >>> ");
-
     #define BUF_LEN 512
     static char buf[BUF_LEN];
 
@@ -138,4 +153,32 @@ char* readline() {
     }
     buf[pos] = '\0';
     return strdup(buf);
+}
+
+int* pipe_open(int nr_pipe) {
+    if (!nr_pipe) {
+        return NULL;
+    }
+
+    int *pipe_fds = NULL;
+    NEW_ARRAY(pipe_fds, int, nr_pipe*2);
+
+    for (int i = 0; i < nr_pipe; i++) {
+        if (pipe(pipe_fds + i*2) < 0) {
+            perror("Open pipe failure");
+            exit(EXIT_FAILURE);
+        }
+    }
+    return pipe_fds;
+}
+
+void pipe_close(int *pipe_fds, int nr_pipe) {
+    if (!nr_pipe) {
+        assert(!pipe_fds);
+        return;
+    }
+    for (int i = 0; i < nr_pipe*2; i++) {
+        close(pipe_fds[i]);
+    }
+    free(pipe_fds);
 }
