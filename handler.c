@@ -11,8 +11,7 @@
 static list_head g_handlers;
 
 void add_handler(const char *name, handle_func_t f) {
-    handler_t *h = NULL;
-    NEW_INSTANCE(h, handler_t);
+    handler_t *h = instance_new(handler_t);
 
     h->name_ = strdup(name);
     h->handle_func = f;

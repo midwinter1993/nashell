@@ -1,5 +1,6 @@
 #include "utils.h"
 
+#include <stdint.h>
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,10 +37,10 @@ void str_free_array(char **arr) {
     }
     char **ptr = arr;
     while (*ptr) {
-        free(*ptr);
+        str_free(*ptr);
         ptr += 1;
     }
-    free(arr);
+    array_free(arr);
 }
 
 
@@ -61,7 +62,7 @@ char* str_trim_space(char *str) {
     }
 
     if (str != start) {
-        memmove(str, start, strlen(start)+1);
+        str_move(str, start);
     }
 
     //
@@ -103,25 +104,24 @@ char** str_split(const char *str, const char *delim) {
     assert(strlen(delim) == 1);
 
     // `strtok` will modify the str, we make a copy first.
-    char *str_copy = strdup(str);
-    if (!str_trim_space(str_copy)) {
+    char *copy = str_copy(str);
+    if (!str_trim_space(copy)) {
         return NULL;
     }
 
     // #string = #space + 1.
     // We put an extra NULL pointer in the result array
     // to indicate the end of array.
-    int nr = str_count_char(str_copy, *delim) + 1 + 1;
+    int nr = str_count_char(copy, *delim) + 1 + 1;
 
-    char **ret = NULL;
-    NEW_ARRAY(ret, char*, nr);
+    char **ret = array_new(char*, nr);
 
     int pos = 0;
-    char *token = strtok(str_copy, delim);
+    char *token = strtok(copy, delim);
 
     while (token) {
         assert(pos < nr);
-        ret[pos] = strdup(token);
+        ret[pos] = str_copy(token);
         token = strtok(0, delim);
         pos += 1;
     }
@@ -129,7 +129,7 @@ char** str_split(const char *str, const char *delim) {
     assert(pos == nr-1);
     ret[pos] = NULL;
 
-    free(str_copy);
+    str_free(copy);
     return ret;
 }
 
@@ -138,8 +138,70 @@ bool str_equal(const char *s1, const char *s2) {
 }
 
 char* str_move(char *dst, char *src) {
-    memmove(dst, src, strlen(src));
+    memmove(dst, src, strlen(src)+1);
     return dst;
+}
+
+char* str_copy(const char *str) {
+    return str_len_copy(str, strlen(str));
+}
+
+char* str_range_copy(const char *start, const char *end) {
+    uint32_t len = end - start;
+    char *ptr = str_new(len+1);
+    for (uint32_t i = 0; i < len; ++i) {
+        ptr[i] = start[i];
+    }
+    return ptr;
+}
+
+char* str_len_copy(const char *start, uint32_t len) {
+    const char *end = start + len;
+    return str_range_copy(start, end);
+}
+
+void* instance_new_impl(uint32_t type_size,
+                const char *filename, int line_no) {
+
+    void *ptr = malloc(type_size);
+
+    if (!ptr) {
+        fprintf(stderr, "OOM at %s:%d\n", filename, line_no);
+        exit(EXIT_FAILURE);
+    }
+
+    memset(ptr, 0, type_size);
+
+    return ptr;
+}
+
+void* array_new_impl(uint32_t type_size, uint32_t nr_elem,
+                const char *filename, int line_no) {
+
+    uint32_t len = type_size * nr_elem + sizeof(uint32_t);
+    void *ptr = malloc(len);
+
+    if (!ptr) {
+        fprintf(stderr, "OOM at %s:%d\n", filename, line_no);
+        exit(EXIT_FAILURE);
+    }
+
+    memset(ptr, 0, len);
+    *(uint32_t*)ptr = nr_elem;
+
+    return (char*)ptr + sizeof(uint32_t);
+}
+
+static void* array_header(void *ptr) {
+    return (char*)ptr - sizeof(uint32_t);
+}
+
+void array_free(void *ptr) {
+    free(array_header(ptr));
+}
+
+uint32_t array_size(void *ptr) {
+    return *(uint32_t*)array_header(ptr);
 }
 
 char* readline() {
@@ -157,7 +219,7 @@ char* readline() {
         pos += 1;
     }
     buf[pos] = '\0';
-    return strdup(buf);
+    return str_copy(buf);
 }
 
 int* pipe_open(int nr_pipe) {
@@ -165,8 +227,7 @@ int* pipe_open(int nr_pipe) {
         return NULL;
     }
 
-    int *pipe_fds = NULL;
-    NEW_ARRAY(pipe_fds, int, nr_pipe*2);
+    int *pipe_fds = array_new(int, nr_pipe*2);
 
     for (int i = 0; i < nr_pipe; i++) {
         if (pipe(pipe_fds + i*2) < 0) {
@@ -185,5 +246,5 @@ void pipe_close(int *pipe_fds, int nr_pipe) {
     for (int i = 0; i < nr_pipe*2; i++) {
         close(pipe_fds[i]);
     }
-    free(pipe_fds);
+    array_free(pipe_fds);
 }
